@@ -3,6 +3,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
+// User Schema
+// Collection: users
 const UserSchema = new mongoose.Schema({
     username: {
         type: String,
@@ -31,7 +33,9 @@ const UserSchema = new mongoose.Schema({
     },
 });
 
+// Encrypting the password everytime before saving
 UserSchema.pre("save", async function (next) {
+    // Don't encrypt password again if it's not modified
     if (!this.isModified("password")) {
         next();
         return;
@@ -41,16 +45,19 @@ UserSchema.pre("save", async function (next) {
     next();
 });
 
+// Method to verify if user entered correct password
 UserSchema.methods.matchPasswords = async function (password) {
     return await bcrypt.compare(password, this.password);
 };
 
+// Method to generate a JWT token after user logs in or signs up
 UserSchema.methods.getSignedToken = function () {
     return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE,
     });
 };
 
+// Method to generated reset password token
 UserSchema.methods.getResetToken = function () {
     const resetToken = crypto.randomBytes(20).toString("hex");
     this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");

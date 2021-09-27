@@ -1,5 +1,6 @@
 const ErrorResponse = require("../utils/errorResponse");
 
+// Last middleware for express to check for errors
 function errorHandler(err, req, res, next) {
     let error = { ...err };
     error.message = err.message;

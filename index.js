@@ -1,22 +1,27 @@
+// Importing dependencies
 require("dotenv").config({ path: "./config.env" });
 const express = require("express");
-const connectDB = require("./config/db");
+const mongoose = require("mongoose");
 const errorHandler = require("./middleware/error");
 
-connectDB();
+// Connecting to the DB
+(async function () {
+    await mongoose.connect(process.env.MONGO_URI, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+    });
+    console.log("Database connected.");
+})();
+
+// Express server and middlewares
 const app = express();
 app.use(express.json());
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/private", require("./routes/private"));
 app.use(errorHandler);
 
+// Running the server
 const PORT = process.env.PORT || 80;
-
 const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}.`);
 });
-
-// process.on("unhandledRejection", (err, promise) => {
-//     console.error(`Unhandled Rejection Error: ${err}`);
-//     server.close(() => process.exit(1));
-// });

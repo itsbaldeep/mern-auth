@@ -3,6 +3,8 @@ const ErrorResponse = require("../utils/errorResponse");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 
+// Register Controller
+// Creates a new user and responds with a new JWT token
 exports.register = async (req, res, next) => {
     const { username, email, password } = req.body;
     try {
@@ -17,6 +19,8 @@ exports.register = async (req, res, next) => {
     }
 };
 
+// Login Controller
+// Responds with a token
 exports.login = async (req, res, next) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -24,16 +28,19 @@ exports.login = async (req, res, next) => {
     }
 
     try {
+        // Getting the users password
         const user = await User.findOne({ email }).select("+password");
         if (!user) {
-            return next(new ErrorResponse("Invalid email", 401));
+            return next(new ErrorResponse("Invalid credentials", 401));
         }
 
+        // Comparing the users password
         const isMatched = await user.matchPasswords(password);
         if (!isMatched) {
-            return next(new ErrorResponse("Invalid password", 401));
+            return next(new ErrorResponse("Invalid credentials", 401));
         }
 
+        // Success response
         sendToken(user, 200, res);
     } catch (error) {
         res.status(500).json({
@@ -43,17 +50,22 @@ exports.login = async (req, res, next) => {
     }
 };
 
+// Forgot Password Controller
 exports.forgotPassword = async (req, res, next) => {
     const { email } = req.body;
 
     try {
+        // Verifying that the user exists
         const user = await User.findOne({ email });
         if (!user) {
             return next(new ErrorResponse("The email couldn't be sent", 404));
         }
+
+        // Generating a reset token and saving changes to the DB
         const resetToken = user.getResetToken();
         await user.save();
 
+        // Generating a reset password url and the email message
         const resetUrl = `http://localhost:3000/resetpassword/${resetToken}`;
         const message = `
             <h1>You have requested to reset your password</h1>
@@ -61,6 +73,7 @@ exports.forgotPassword = async (req, res, next) => {
             <a href=${resetUrl} clicktracking=off>${resetUrl}</a>
         `;
 
+        // Sending the email to the user
         try {
             await sendEmail({
                 to: user.email,
@@ -72,6 +85,7 @@ exports.forgotPassword = async (req, res, next) => {
                 data: "Email sent",
             });
         } catch (error) {
+            // In case of an error, reset the token and expire and save changes to the DB
             user.resetPasswordToken = undefined;
             user.resetPasswordExpire = undefined;
             await user.save();
@@ -82,14 +96,19 @@ exports.forgotPassword = async (req, res, next) => {
     }
 };
 
+// Reset Password Controller
 exports.resetPassword = async (req, res, next) => {
+    // Create a token
     const resetPasswordToken = crypto.createHash("sha256").update(req.params.resetToken).digest("hex");
     try {
+        // Finding the user based on the token
         const user = await User.findOne({
             resetPasswordToken,
             resetPasswordExpire: { $gt: Date.now() },
         });
         if (!user) return next(new ErrorResponse("Invalid Reset Token", 400));
+
+        // Resetting the password and saving changes
         user.password = req.body.password;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
@@ -104,6 +123,7 @@ exports.resetPassword = async (req, res, next) => {
     }
 };
 
+// This function generates a new JWT token
 const sendToken = (user, statusCode, res) => {
     const token = user.getSignedToken();
     res.status(statusCode).json({
